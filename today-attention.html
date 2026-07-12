@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Today Attention Dashboard",
+  "schemaVersion": 1,
+  "description": "오늘의 주의사항 라이브 대시보드 — 구글 캘린더(오늘·이번주 일정), 드라이브 공문 마감·할일(D-day 자동 계산), Gmail 안읽은 메일, 최근 드라이브 문서를 열 때마다 실시간으로 불러옴. 임박 마감(D-7 이내)은 상단에 경고로 강조.",
+  "mcpTools": [
+    "mcp__dcbe127e-5d2a-4bec-975a-8288087f89b7__list_events",
+    "mcp__fed21031-00d7-48c4-8f6b-31538d79cced__search_threads",
+    "mcp__a8734672-72fd-46dc-9323-ffa7c8e04d2d__list_recent_files",
+    "mcp__a8734672-72fd-46dc-9323-ffa7c8e04d2d__search_files",
+    "mcp__a8734672-72fd-46dc-9323-ffa7c8e04d2d__read_file_content"
+  ],
+  "mcpServerNames": [
+    "Google Calendar",
+    "Gmail",
+    "Google Drive",
+    "Google Drive",
+    "Google Drive"
+  ]
+}
+</script>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오늘의 주의사항</title>
+<style>
+:root{ color-scheme: light; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Malgun Gothic','맑은 고딕',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fa;color:#1f2937;padding:20px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:22px;color:#1f4e78;display:flex;align-items:center;gap:9px}
+.sub{color:#6b7280;font-size:13px;margin-top:5px}
+.stamp{font-size:11px;color:#9aa5b4;margin-top:2px}
+
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 6px}
+.chip{background:#fff;border-radius:11px;padding:11px 15px;box-shadow:0 1px 3px rgba(0,0,0,.07);display:flex;flex-direction:column;min-width:104px;border-left:4px solid #cbd5e1}
+.chip .n{font-size:24px;font-weight:800;line-height:1.1}
+.chip .l{font-size:11px;color:#6b7280;margin-top:2px}
+.chip.today{border-color:#2e75b6}.chip.today .n{color:#2e75b6}
+.chip.urgent{border-color:#e03131}.chip.urgent .n{color:#e03131}
+.chip.mail{border-color:#e8590c}.chip.mail .n{color:#e8590c}
+.chip.week{border-color:#2f9e44}.chip.week .n{color:#2f9e44}
+
+.alert{background:#fff5f5;border:1px solid #ffc9c9;border-radius:12px;padding:14px 16px;margin:12px 0}
+.alert h2{font-size:14px;color:#c92a2a;display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.alert .row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed #ffd3d3;font-size:13px}
+.alert .row:first-of-type{border-top:none}
+.dday{font-weight:800;white-space:nowrap;min-width:52px;text-align:center;padding:2px 6px;border-radius:6px;font-size:12px}
+.d-past{background:#f1f3f5;color:#adb5bd}.d-urgent{background:#ffe3e3;color:#e03131}.d-soon{background:#fff3bf;color:#e67700}.d-ok{background:#e6fcf5;color:#0ca678}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden;display:flex;flex-direction:column}
+.panel h2{font-size:15px;padding:14px 16px;border-bottom:1px solid #eef1f5;display:flex;align-items:center;gap:8px;color:#1f4e78}
+.panel h2 .cnt{margin-left:auto;font-size:12px;font-weight:600;color:#fff;background:#94a3b8;border-radius:10px;padding:1px 9px}
+.body{padding:6px 16px 14px}
+.loading{color:#9aa5b4;font-size:13px;padding:16px 0;text-align:center}
+.empty{color:#adb5bd;font-size:13px;padding:14px 0;text-align:center}
+.err{color:#e8590c;font-size:12px;padding:12px 0;text-align:center}
+
+.item{padding:9px 0;border-top:1px solid #f1f3f5;display:flex;gap:10px;align-items:flex-start}
+.item:first-child{border-top:none}
+.time{font-size:12px;font-weight:700;color:#2e75b6;white-space:nowrap;min-width:46px}
+.time.allday{color:#9c36b5}
+.it-main{flex:1;min-width:0}
+.it-title{font-size:13px;font-weight:600;word-break:break-word}
+.it-sub{font-size:11px;color:#8a94a3;margin-top:1px;word-break:break-word}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:5px;margin-right:5px;vertical-align:middle}
+.t-진행중{background:#d3f9d8;color:#2b8a3e}.t-예정{background:#fff3bf;color:#e67700}.t-확인필요{background:#ffe8cc;color:#d9480f}.t-상시{background:#d0ebff;color:#1971c2}.t-내부,.t-안내{background:#e9ecef;color:#495057}.t-마감{background:#f1f3f5;color:#adb5bd}
+.area{font-size:10px;color:#5c7cfa;font-weight:700}
+.datehdr{font-size:11px;font-weight:800;color:#495057;background:#f8fafc;padding:5px 8px;border-radius:6px;margin:8px 0 2px}
+.datehdr.is-today{background:#e7f0fb;color:#2e75b6}
+a.doc{color:#1971c2;text-decoration:none;font-size:11px}
+a.doc:hover{text-decoration:underline}
+.mail-unread .it-title{font-weight:700}
+.imp{color:#e03131;font-weight:800;font-size:10px;margin-right:3px}
+.more{font-size:12px;color:#748297;padding:8px 0 2px;text-align:center}
+footer{text-align:center;color:#adb5bd;font-size:11px;margin-top:20px}
+.srcnote{font-size:11px;color:#9aa5b4;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔔 오늘의 주의사항</h1>
+  <div class="sub">기준일 <b id="today"></b> · 연결된 도구(구글 캘린더 · Gmail · 구글 드라이브)에서 매번 최신 상태를 불러옵니다</div>
+  <div class="stamp" id="stamp"></div>
+
+  <div class="chips" id="chips"></div>
+
+  <div id="alertZone"></div>
+
+  <div class="grid">
+    <section class="panel"><h2>📅 오늘 · 이번 주 일정 <span class="cnt" id="cnt-cal">…</span></h2><div class="body" id="cal"><div class="loading">불러오는 중…</div></div></section>
+    <section class="panel"><h2>⏰ 공문 마감 · 할일 <span class="cnt" id="cnt-gm">…</span></h2><div class="body" id="gm"><div class="loading">불러오는 중…</div></div></section>
+    <section class="panel"><h2>✉️ 안읽은 메일 <span class="cnt" id="cnt-mail">…</span></h2><div class="body" id="mail"><div class="loading">불러오는 중…</div></div></section>
+    <section class="panel"><h2>📄 최근 문서 <span class="cnt" id="cnt-file">…</span></h2><div class="body" id="file"><div class="loading">불러오는 중…</div></div></section>
+  </div>
+
+  <footer>Cowork 라이브 아티팩트 · 상단 새로고침으로 갱신 · 공문 마감은 드라이브의 gongmun_data.json 기준 · 안읽은 메일 0건이면 최근 받은 메일을 표시</footer>
+</div>
+
+<script>
+// ---- MCP tool ids ----
+const T_CAL   = "mcp__dcbe127e-5d2a-4bec-975a-8288087f89b7__list_events";
+const T_MAIL  = "mcp__fed21031-00d7-48c4-8f6b-31538d79cced__search_threads";
+const T_FILES = "mcp__a8734672-72fd-46dc-9323-ffa7c8e04d2d__list_recent_files";
+const T_SEARCH= "mcp__a8734672-72fd-46dc-9323-ffa7c8e04d2d__search_files";
+const T_READ  = "mcp__a8734672-72fd-46dc-9323-ffa7c8e04d2d__read_file_content";
+
+const KST = 'Asia/Seoul';
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function ymd(d){ return new Intl.DateTimeFormat('en-CA',{timeZone:KST,year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }
+const NOW = new Date();
+const TODAY = ymd(NOW);
+document.getElementById('today').textContent = TODAY + ' (' + ['일','월','화','수','목','금','토'][new Date(TODAY+'T00:00:00+09:00').getDay()] + ')';
+document.getElementById('stamp').textContent = '마지막 로딩: ' + new Intl.DateTimeFormat('ko-KR',{timeZone:KST,dateStyle:'medium',timeStyle:'short'}).format(NOW);
+
+function ddayNum(dateStr){ // dateStr YYYY-MM-DD
+  return Math.round((Date.parse(dateStr+'T00:00:00+09:00') - Date.parse(TODAY+'T00:00:00+09:00'))/86400000);
+}
+function ddayLabel(n){ if(n===0) return 'D-DAY'; return n>0? 'D-'+n : 'D+'+(-n); }
+function ddayClass(n){ if(n<0) return 'd-past'; if(n<=7) return 'd-urgent'; if(n<=21) return 'd-soon'; return 'd-ok'; }
+
+async function mcp(name,args){
+  try{
+    const r = await window.cowork.callMcpTool(name, args||{});
+    if(!r) return null;
+    if(r.isError) throw new Error('tool error');
+    let d = r.structuredContent;
+    if(d==null && r.content && r.content[0] && r.content[0].text){ d = JSON.parse(r.content[0].text); }
+    return d;
+  }catch(e){ console.warn('mcp fail', name, e); return null; }
+}
+
+/* ================= 캘린더 ================= */
+async function loadCal(){
+  const start = TODAY+'T00:00:00+09:00';
+  const end   = ymd(new Date(NOW.getTime()+8*86400000))+'T00:00:00+09:00';
+  const d = await mcp(T_CAL,{startTime:start,endTime:end,orderBy:'startTime',pageSize:40,timeZone:KST});
+  const box = document.getElementById('cal');
+  if(!d){ box.innerHTML='<div class="err">캘린더를 불러오지 못했습니다</div>'; document.getElementById('cnt-cal').textContent='!'; return {today:0,week:0}; }
+  let evs = (d.events||[]).filter(e=>e.status!=='cancelled');
+  // normalize
+  evs = evs.map(e=>{
+    const allday = !!(e.start&&e.start.date);
+    let date, tstr='';
+    if(allday){ date = e.start.date.slice(0,10); }
+    else{ const dt=e.start.dateTime; date = ymd(new Date(dt)); tstr = new Intl.DateTimeFormat('ko-KR',{timeZone:KST,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(dt)); }
+    return {allday,date,tstr,summary:e.summary||'(제목 없음)'};
+  }).filter(e=>e.date>=TODAY).sort((a,b)=> (a.date+ (a.tstr||'00:00')).localeCompare(b.date+(b.tstr||'00:00')));
+
+  let todayCnt=0;
+  evs.forEach(e=>{ if(e.date===TODAY) todayCnt++; });
+  document.getElementById('cnt-cal').textContent = evs.length;
+
+  if(!evs.length){ box.innerHTML='<div class="empty">이번 주 일정이 없습니다</div>'; return {today:0,week:0}; }
+  let html='', curDate='';
+  const dow=['일','월','화','수','목','금','토'];
+  evs.forEach(e=>{
+    if(e.date!==curDate){
+      curDate=e.date;
+      const isT=e.date===TODAY;
+      const dd=new Date(e.date+'T00:00:00+09:00');
+      const lbl = (isT?'오늘':'') + ' '+e.date.slice(5).replace('-','/')+' ('+dow[dd.getDay()]+')';
+      html+='<div class="datehdr'+(isT?' is-today':'')+'">'+esc(lbl.trim())+'</div>';
+    }
+    html+='<div class="item"><div class="time'+(e.allday?' allday':'')+'">'+(e.allday?'종일':esc(e.tstr))+'</div><div class="it-main"><div class="it-title">'+esc(e.summary)+'</div></div></div>';
+  });
+  box.innerHTML=html;
+  return {today:todayCnt, week:evs.length};
+}
+
+/* ================= 공문 마감 ================= */
+const GM_FALLBACK = {items:[
+  {date:"2026-07-24",status:"진행중",area:"연구·기초학력",task:"기초학력 1차 향상도검사 실시 및 7월 체크리스트 작성·제출",where:"국가기초학력지원포털",doc:"강서중-4185",note:"검사 5.22~7.24 기간엄수(이후 검사 불가)"},
+  {date:"2026-07-31",status:"예정",area:"연구·기초학력",task:"학습지원 담당교원 기초학력 연수 이수현황 제출(1차)",where:"별도 공문 안내 예정",doc:"강서중-5059",note:"이수현황 7·10월 2회"},
+  {date:"2026-08-31",status:"진행중",area:"정보·디지털",task:"디지털새싹 1기 프로그램 신청",where:"온라인 상시 접수",doc:"강서중-4414",note:"신청 5.26~8.31"},
+  {date:"2026-08-31",status:"진행중",area:"정보",task:"디지털 인프라 점검 협조",where:"춘천교육지원청",doc:"강서중-4067",note:"점검 5~8월"},
+  {date:"2026-08-31",status:"진행중",area:"정보",task:"정보화기기 유지관리 계약·IDMS 현행화",where:"IDMS",doc:"강서중-1201",note:"등록 4월까지·보고 8월말"},
+  {date:"2026-11-27",status:"진행중",area:"과학",task:"과학실 안전점검(현장점검 대상교) 실시",where:"업무관리시스템",doc:"강서중-1151",note:"현장점검 11.27"},
+  {date:"2026-11-30",status:"진행중",area:"연구",task:"굿네이버스 창의적체험활동 운영",where:"교육 진행",doc:"강서중-1602",note:"교육기간 3.4~11.30"},
+  {date:"2026-12-11",status:"진행중",area:"연구",task:"장애발생예방(인식개선)교육 월별 신청",where:"nrcjb@korea.kr",doc:"강서중-935",note:"3.16~12.11 월별"},
+  {date:"2026-12-31",status:"진행중",area:"연구",task:"찾아가는 인도주의 인성교육(HEY) 신청",where:"붙임 참조",doc:"강서중-2982",note:"5~12월 선착순"},
+  {date:null,status:"확인필요",area:"정보",task:"학습지원 소프트웨어 학운위 심의",where:"학교운영위원회",doc:"강서중-1207",note:"1학기까지 서면심의 가능"},
+  {date:null,status:"진행중",area:"연구",task:"청각장애이해·수어교육(선정교) 일정 조율",where:"춘천계성학교",doc:"강서중-4219",note:"선정 완료, 일정 협의"},
+  {date:null,status:"상시",area:"정보",task:"강원아이로(AI-ro) 활용 신청",where:"K-에듀파인 공문",doc:"퇴계중-1072",note:"매월 추가신청 가능"}
+]};
+
+async function loadGongmun(){
+  const box=document.getElementById('gm');
+  let data=null, live=false;
+  try{
+    const s = await mcp(T_SEARCH,{query:"title = 'gongmun_data.json'",pageSize:5,excludeContentSnippets:true});
+    const files = s && s.files ? s.files.slice().sort((a,b)=>String(b.modifiedTime||'').localeCompare(String(a.modifiedTime||''))) : [];
+    if(files.length){
+      const r = await mcp(T_READ,{fileId:files[0].id});
+      const fc = r && r.fileContent ? r.fileContent : null;
+      if(fc){
+        const cleaned = fc.replace(/\\(?![\/bfnrtu"\\])/g,'');
+        data = JSON.parse(cleaned); live=true;
+      }
+    }
+  }catch(e){ console.warn('gongmun live fail', e); }
+  if(!data){ data = GM_FALLBACK; }
+
+  let items = (data.items||[]).filter(x=>x.status!=='마감');
+  items = items.map(x=>({...x, dd: x.date? ddayNum(x.date): null}))
+               .filter(x=> x.dd===null || x.dd>=0);
+  items.sort((a,b)=>{
+    if(a.dd===null && b.dd===null) return 0;
+    if(a.dd===null) return 1;
+    if(b.dd===null) return -1;
+    return a.dd-b.dd;
+  });
+  document.getElementById('cnt-gm').textContent = items.length;
+  if(!items.length){ box.innerHTML='<div class="empty">임박한 공문 마감이 없습니다</div>'; return {urgent:0,items:[]}; }
+
+  let html = live?'' : '<div class="srcnote">※ 실시간 파일을 못 읽어 내장 스냅샷을 표시합니다</div>';
+  items.forEach(x=>{
+    const ddH = x.dd===null? '<span class="dday d-ok">상시</span>' : '<span class="dday '+ddayClass(x.dd)+'">'+ddayLabel(x.dd)+'</span>';
+    html+='<div class="item">'+ddH+'<div class="it-main"><div class="it-title"><span class="tag t-'+esc(x.status)+'">'+esc(x.status)+'</span>'+esc(x.task)+'</div><div class="it-sub"><span class="area">'+esc(x.area)+'</span> · '+esc(x.where||'')+(x.note?' · '+esc(x.note):'')+' · '+esc(x.doc||'')+'</div></div></div>';
+  });
+  box.innerHTML=html;
+  const urgent = items.filter(x=>x.dd!==null && x.dd<=7);
+  return {urgent:urgent.length, items:urgent};
+}
+
+/* ================= 안읽은 메일 ================= */
+async function loadMail(){
+  const box=document.getElementById('mail');
+  let d = await mcp(T_MAIL,{query:'is:unread in:inbox',pageSize:15});
+  if(d===null){ box.innerHTML='<div class="err">메일을 불러오지 못했습니다</div>'; document.getElementById('cnt-mail').textContent='!'; return 0; }
+  let threads = d.threads||[];
+  let unreadCount = threads.length;
+  document.getElementById('cnt-mail').textContent = unreadCount;
+
+  const render = (arr,unread) => arr.map(t=>{
+    const m = (t.messages&&t.messages[0])||{};
+    const imp = (m.labelIds||[]).includes('IMPORTANT');
+    const sender = (m.sender||'').replace(/<.*>/,'').replace(/"/g,'').trim() || m.sender || '';
+    return '<div class="item '+(unread?'mail-unread':'')+'"><div class="it-main"><div class="it-title">'+(imp?'<span class="imp">★중요</span>':'')+esc(m.subject||'(제목 없음)')+'</div><div class="it-sub">'+esc(sender)+' · '+esc((m.snippet||'').slice(0,60))+'</div></div></div>';
+  }).join('');
+
+  if(unreadCount){ box.innerHTML = render(threads,true); return unreadCount; }
+  // 0 unread → show recent inbox as bonus
+  let r = await mcp(T_MAIL,{query:'in:inbox newer_than:14d',pageSize:5});
+  const recent = (r&&r.threads)||[];
+  if(recent.length){
+    box.innerHTML = '<div class="empty" style="padding:8px 0">안읽은 메일 없음 · 최근 받은 메일</div>'+render(recent.slice(0,5),false);
+  }else{
+    box.innerHTML = '<div class="empty">안읽은 메일이 없습니다</div>';
+  }
+  return 0;
+}
+
+/* ================= 최근 문서 ================= */
+async function loadFiles(){
+  const box=document.getElementById('file');
+  const d = await mcp(T_FILES,{pageSize:8,excludeContentSnippets:true});
+  if(!d){ box.innerHTML='<div class="err">문서를 불러오지 못했습니다</div>'; document.getElementById('cnt-file').textContent='!'; return; }
+  const files=(d.files||[]);
+  document.getElementById('cnt-file').textContent=files.length;
+  if(!files.length){ box.innerHTML='<div class="empty">최근 문서가 없습니다</div>'; return; }
+  const typeIcon = m => m&&m.includes('spreadsheet')?'📊': m&&m.includes('document')?'📝': m&&m.includes('presentation')?'📽️': m&&m.includes('pdf')?'📕': m&&m.includes('json')?'🗄️': m&&m.includes('html')?'🌐':'📄';
+  box.innerHTML = files.map(f=>{
+    const mt = f.modifiedTime? new Intl.DateTimeFormat('ko-KR',{timeZone:KST,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(f.modifiedTime)) : '';
+    const title = f.viewUrl? '<a class="doc" href="'+esc(f.viewUrl)+'" target="_blank" rel="noopener">'+esc(f.title)+'</a>' : esc(f.title);
+    return '<div class="item"><div class="time" style="min-width:22px">'+typeIcon(f.mimeType)+'</div><div class="it-main"><div class="it-title" style="font-weight:600">'+title+'</div><div class="it-sub">수정 '+esc(mt)+'</div></div></div>';
+  }).join('');
+}
+
+/* ================= 요약 칩 + 알림 ================= */
+function renderChips(cal,urgentN,mailN){
+  document.getElementById('chips').innerHTML =
+    '<div class="chip today"><span class="n">'+cal.today+'</span><span class="l">오늘 일정</span></div>'+
+    '<div class="chip urgent"><span class="n">'+urgentN+'</span><span class="l">임박 마감 (D-7)</span></div>'+
+    '<div class="chip mail"><span class="n">'+mailN+'</span><span class="l">안읽은 메일</span></div>'+
+    '<div class="chip week"><span class="n">'+cal.week+'</span><span class="l">이번 주 일정</span></div>';
+}
+function renderAlert(urgentItems){
+  const z=document.getElementById('alertZone');
+  if(!urgentItems.length){ z.innerHTML=''; return; }
+  let rows = urgentItems.map(x=>'<div class="row"><span class="dday '+ddayClass(x.dd)+'">'+ddayLabel(x.dd)+'</span><b>'+esc(x.task)+'</b><span style="color:#868e96;font-size:11px">'+esc(x.where||'')+' · '+esc(x.doc||'')+'</span></div>').join('');
+  z.innerHTML='<div class="alert"><h2>⚠️ 이번 주 안에 처리할 마감 ('+urgentItems.length+'건)</h2>'+rows+'</div>';
+}
+
+/* ================= 실행 ================= */
+(async function(){
+  const [cal, gm, mailN] = await Promise.all([loadCal(), loadGongmun(), loadMail()]);
+  loadFiles();
+  renderChips(cal, gm.urgent, mailN);
+  renderAlert(gm.items);
+})();
+</script>
+</body>
+</html>
