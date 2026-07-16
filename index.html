@@ -183,6 +183,7 @@
   <div class="header-right">
     <div class="badge" id="tday" style="display:none;">🌹 스승의 날</div>
     <button class="btn" onclick="refreshCal()"><span id="spin-ico">↻</span> 일정 새로고침</button>
+    <button class="btn" onclick="copyRefreshCmd()" title="Cowork 채팅에 붙여넣어 대시보드를 갱신합니다">🔄 대시보드 갱신</button>
   </div>
 </div>
 
@@ -684,6 +685,20 @@ function showToast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.style.display='block';
   setTimeout(()=>{ el.style.display='none'; }, 2200);
+}
+
+function copyRefreshCmd(){
+  const cmd='대시보드 갱신';
+  const done=()=>showToast('📋 "대시보드 갱신" 복사됨 · Cowork 채팅에 붙여넣기(Ctrl+V) 후 전송하세요');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(cmd).then(done).catch(()=>fallbackCopy(cmd,done));
+  } else { fallbackCopy(cmd,done); }
+}
+function fallbackCopy(t,cb){
+  const ta=document.createElement('textarea');ta.value=t;ta.style.position='fixed';ta.style.top='-9999px';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);cb&&cb();
 }
 
 // ── 파일 색인 (2026-05-16 스캔, 코워크 폴더 2depth) ──
