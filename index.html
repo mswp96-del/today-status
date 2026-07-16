@@ -206,10 +206,9 @@
       <input id="todo-search" type="text" placeholder="할일·공문 검색… (Enter: 폴더에서 찾기)" oninput="onSearchInput()" onkeydown="if(event.key==='Enter')searchFolder()">
       <button class="search-clear" id="search-clear-btn" onclick="clearSearch()">✕</button>
     </div>
-    <button class="search-folder-btn" onclick="searchFolder()">📂 검색</button>
-    <button class="search-folder-btn" id="folder-connect-btn" onclick="connectFolder()">📁 폴더 연결</button>
-    <button class="btn-todo-refresh" id="todo-refresh-btn" onclick="rescanFolder()">
-      <span id="todo-spin-ico">↻</span> 폴더 스캔
+    <button class="search-folder-btn" onclick="searchFolder()">📂 폴더 검색</button>
+    <button class="btn-todo-refresh" id="todo-refresh-btn" onclick="refreshTodos()">
+      <span id="todo-spin-ico">↻</span> 새로고침
     </button>
   </div>
   <div id="search-results"></div>
@@ -305,7 +304,7 @@ function todayRange() {
   return { s:`${t}T00:00:00`, e:`${t}T23:59:59` };
 }
 
-// ── 캘린더 기본 데이터 (자동 업데이트: 2026-07-16 (자동 갱신)) ──
+// ── 캘린더 기본 데이터 (자동 업데이트: 2026-07-16 06:00) ──
 const CAL_SEED = {"2026-07-16": [{"summary": "GPT 8시", "calLabel": "개인", "isHoliday": false, "timeStr": "16:00–17:00", "htmlLink": "https://www.google.com/calendar/event?eid=Mmp1ZWdyYXRhNzV1dGEyZzFnaWJjNWQ1MW1fMjAyNjA3MTZUMDcwMDAwWiBtc3dwOTZAbQ&ctz=Asia/Seoul"}]};
 
 // ── 캘린더 ID 목록 ──
@@ -500,8 +499,8 @@ function mailCard(msg) {
   </a>`;
 }
 
-// ── 메일 시드 데이터 (자동 업데이트: 2026-07-16 (자동 갱신)) ──
-const MAIL_SEED = [{"_tid": "19f68026eaaf1580", "sender": "kahoot@team.kahoot.com", "subject": "Save time on planning with Kahoot!+", "snippet": "Plan ahead effortlessly with Kahoot!+", "date": "2026-07-15T23:00:16Z"}, {"_tid": "19f6565a4ea1f908", "sender": "calendar-notification@google.com", "subject": "알림: 소마  - 2026년 7월 15일 (수) 오후 8시 - 오후 9시 (GMT+9) (mswp96@gmail.com)", "snippet": "소마 강서중과학교사님이 2026년 7월 15일 (수요일) ⋅ 오후 8시 – 오후 9시 (동티모르 시간)에 열리는 소마 일정에 나를 초대했습니다.", "date": "2026-07-15T10:49:47Z"}];
+// ── 메일 시드 데이터 (자동 업데이트: 2026-07-16 06:00) ──
+const MAIL_SEED = [{"_tid": "19f68026eaaf1580", "sender": "kahoot@team.kahoot.com", "subject": "Save time on planning with Kahoot!+", "snippet": "Plan ahead effortlessly with Kahoot!+", "date": "2026-07-15T23:00:16Z"}, {"_tid": "19f6565a4ea1f908", "sender": "calendar-notification@google.com", "subject": "알림: 소마  - 2026년 7월 15일 (수) 오후 8시 - 오후 9시 (GMT+9) (mswp96@gmail.com)", "snippet": "소마 강서중과학교사님이 7월 15일 오후 8시–9시 소마 일정에 초대했습니다", "date": "2026-07-15T10:49:47Z"}];
 
 function renderMailSeed() {
   const msgs = [...MAIL_SEED].sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -826,12 +825,10 @@ function searchFolder() {
   const q = document.getElementById('todo-search').value.trim();
   if (!q) { showToast('검색어를 입력해 주세요'); return; }
   const kw = q.toLowerCase();
-  const _idx = LIVE_INDEX || FILE_INDEX;
-  const _src = LIVE_INDEX ? '실시간 스캔' : '스냅샷 2026-05-16';
-  const hits = _idx.filter(f => f.n.toLowerCase().includes(kw)).slice(0, 30);
+  const hits = FILE_INDEX.filter(f => f.n.toLowerCase().includes(kw)).slice(0, 30);
   const sr = document.getElementById('search-results');
   if (hits.length === 0) {
-    sr.innerHTML = `<div class="sr-head" style="font-size:0.8rem;color:#64748b;padding:4px 0">📂 "${esc(q)}" — 일치하는 파일 없음 · ${_src}</div>`;
+    sr.innerHTML = `<div class="sr-head" style="font-size:0.8rem;color:#64748b;padding:4px 0">📂 "${esc(q)}" — 일치하는 파일 없음</div>`;
   } else {
     const rows = hits.map(f => {
       const ext = (f.e||'').toLowerCase();
@@ -843,7 +840,7 @@ function searchFolder() {
         <span class="sr-copy">📋 경로 복사</span>
       </div>`;
     }).join('');
-    sr.innerHTML = `<div class="sr-head" style="font-size:0.78rem;color:#1d4ed8;font-weight:600;margin-bottom:6px">📂 "${esc(q)}" — ${hits.length}건 · ${_src} (클릭 시 경로 복사)</div>${rows}`;
+    sr.innerHTML = `<div class="sr-head" style="font-size:0.78rem;color:#1d4ed8;font-weight:600;margin-bottom:6px">📂 "${esc(q)}" — ${hits.length}건 (클릭 시 경로 복사)</div>${rows}`;
   }
   sr.style.display = 'block';
 }
@@ -918,122 +915,6 @@ function renderSearchResults() {
   sr.style.display = 'block';
 }
 
-/* ============================================================
-   폴더 자동 갱신 (File System Access API) — 2026 추가
-   브라우저에서 코워크 폴더를 직접 선택 → 파일 목록을 실시간 스캔.
-   더 이상 HTML을 손으로 고치지 않아도 새 파일이 검색에 바로 반영됩니다.
-   (크롬/엣지 등 Chromium 계열 브라우저 필요)
-   ============================================================ */
-let LIVE_INDEX = null;   // 실시간 스캔 결과 (있으면 검색에 우선 사용)
-let DIR_HANDLE = null;   // 선택된 폴더 핸들
-
-// ── IndexedDB: 폴더 핸들 저장/복원 ──
-function _idb(){ return new Promise((res,rej)=>{ const o=indexedDB.open('today-status-db',1); o.onupgradeneeded=()=>{ o.result.createObjectStore('kv'); }; o.onsuccess=()=>res(o.result); o.onerror=()=>rej(o.error); }); }
-async function idbSet(k,v){ const db=await _idb(); return new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
-async function idbGet(k){ const db=await _idb(); return new Promise((res,rej)=>{ const tx=db.transaction('kv','readonly'); const rq=tx.objectStore('kv').get(k); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
-
-// ── 폴더 재귀 스캔 ──
-async function _scanDir(dirHandle, prefix, out){
-  for await (const entry of dirHandle.values()){
-    if (entry.kind === 'file'){
-      const name = entry.name;
-      const dot = name.lastIndexOf('.');
-      const ext = dot >= 0 ? name.slice(dot).toLowerCase() : '';
-      out.push({ n: name, p: BASE + prefix + name, e: ext });
-    } else if (entry.kind === 'directory'){
-      if (entry.name.startsWith('.')) continue; // 숨김 폴더 제외
-      await _scanDir(entry, prefix + entry.name + '\\', out);
-    }
-  }
-}
-
-// ── 권한 확인 ──
-async function _ensurePermission(handle){
-  const opts = { mode: 'read' };
-  if ((await handle.queryPermission(opts)) === 'granted') return true;
-  if ((await handle.requestPermission(opts)) === 'granted') return true;
-  return false;
-}
-
-// ── 폴더 연결(최초 선택) ──
-async function connectFolder(){
-  if (!window.showDirectoryPicker){
-    showToast('이 브라우저는 폴더 선택을 지원하지 않아요. 크롬/엣지에서 열어주세요.');
-    return;
-  }
-  try{
-    const handle = await window.showDirectoryPicker({ id:'cowork-folder', mode:'read' });
-    DIR_HANDLE = handle;
-    try{ await idbSet('coworkDir', handle); }catch(e){}
-    await rescanFolder();
-  }catch(e){
-    if (e && e.name === 'AbortError') return; // 사용자가 취소
-    showToast('폴더 연결 실패: ' + (e && e.message ? e.message : e));
-  }
-}
-
-// ── 폴더 스캔(새로고침) ──
-async function rescanFolder(){
-  if (!DIR_HANDLE){ return connectFolder(); }
-  const spin = document.getElementById('todo-spin-ico');
-  const btn  = document.getElementById('todo-refresh-btn');
-  const prog = document.getElementById('refresh-progress');
-  if (spin) spin.classList.add('spinning');
-  if (btn) btn.disabled = true;
-  if (prog) prog.style.display = 'block';
-  setRpStep(1, '📂 폴더 접근 권한 확인 중…');
-  try{
-    if (!(await _ensurePermission(DIR_HANDLE))){
-      setRpStep(1, '⚠️ 폴더 접근 권한이 필요해요');
-      showToast('폴더 접근을 허용해 주세요');
-      return;
-    }
-    setRpStep(2, '🔍 폴더 스캔 중…');
-    const out = [];
-    await _scanDir(DIR_HANDLE, '', out);
-    out.sort((a,b)=> a.p.localeCompare(b.p, 'ko'));
-    LIVE_INDEX = out;
-    setRpStep(3, '📋 목록 갱신 중… (' + out.length + '개 파일)');
-    const q = document.getElementById('todo-search').value.trim();
-    if (q) searchFolder(); // 검색 중이었다면 결과 즉시 갱신
-    const now = new Date();
-    const p2 = n => String(n).padStart(2,'0');
-    const ts = now.getFullYear()+'-'+p2(now.getMonth()+1)+'-'+p2(now.getDate())+' '+p2(now.getHours())+':'+p2(now.getMinutes());
-    const lu = document.getElementById('last-up');
-    if (lu) lu.textContent = '📁 마지막 폴더 스캔: ' + ts + ' · ' + out.length + '개 파일 (실시간)';
-    const fb = document.getElementById('folder-connect-btn');
-    if (fb) fb.textContent = '📁 폴더 연결됨';
-    setRpStep(4, '✅ 완료 — ' + out.length + '개 파일 색인');
-    showToast('✅ 폴더 스캔 완료 · ' + out.length + '개 파일');
-  }catch(e){
-    setRpStep(4, '⚠️ 스캔 오류: ' + (e && e.message ? e.message : e));
-    showToast('스캔 중 오류가 발생했어요');
-  }finally{
-    if (spin) spin.classList.remove('spinning');
-    if (btn) btn.disabled = false;
-    const bar = document.getElementById('rp-bar'); if (bar) bar.style.width = '100%';
-    if (prog) setTimeout(()=>{ prog.style.display='none'; }, 4000);
-  }
-}
-
-// ── 페이지 로드 시 저장된 폴더 복원 ──
-async function restoreFolderOnLoad(){
-  try{
-    const handle = await idbGet('coworkDir');
-    if (!handle) return;
-    DIR_HANDLE = handle;
-    const fb = document.getElementById('folder-connect-btn');
-    if ((await handle.queryPermission({mode:'read'})) === 'granted'){
-      if (fb) fb.textContent = '📁 폴더 연결됨';
-      await rescanFolder(); // 이미 허용된 경우 바로 스캔
-    } else {
-      if (fb) fb.textContent = '📁 폴더 다시 연결';
-      const lu = document.getElementById('last-up');
-      if (lu) lu.textContent = '📁 저장된 폴더 있음 — [↻ 폴더 스캔]을 눌러 최신 목록을 불러오세요';
-    }
-  }catch(e){}
-}
-
 // ── 초기화 ──
 (function init() {
   renderTodos();
@@ -1041,7 +922,6 @@ async function restoreFolderOnLoad(){
   showSeedCal();
   document.getElementById('last-up').textContent = '마지막 업데이트: 2026-05-15 06:00 (자동)';
   renderSearchResults(); // 저장된 검색 결과 복원
-  restoreFolderOnLoad();  // 저장된 폴더 핸들 복원(자동 갱신)
 })();
 </script>
 </body>
