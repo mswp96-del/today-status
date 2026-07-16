@@ -305,15 +305,8 @@ function todayRange() {
   return { s:`${t}T00:00:00`, e:`${t}T23:59:59` };
 }
 
-// ── 캘린더 기본 데이터 (자동 업데이트: 2026-05-17 06:00) ──
-const CAL_SEED = {
-  ['2026-05-17']: [
-    { summary: 'G마켓에 과학 물품 담기', calLabel: '개인', isHoliday: false, timeStr: '종일', htmlLink: 'https://www.google.com/calendar/event?eid=MDBhcTRjcG1icjRtODRyamtiZW5vdWVmc2ggbXN3cDk2QG0&ctz=Asia/Seoul' },
-    { summary: '대룡산 약국', calLabel: '개인', isHoliday: false, timeStr: '종일', htmlLink: 'https://www.google.com/calendar/event?eid=NDBuZ2ZudWplMWFrbnJjZzgwNjRtcWtoaWogbXN3cDk2QG0&ctz=Asia/Seoul' },
-    { summary: '과학고 첨부파일 만들기', calLabel: '개인', isHoliday: false, timeStr: '종일', htmlLink: 'https://www.google.com/calendar/event?eid=MDZ0NW1pczBjNGJhaWI0MmNmYjVoYWl1aTEgbXN3cDk2QG0&ctz=Asia/Seoul' },
-    { summary: '사이언스# 물품 견적서', calLabel: '개인', isHoliday: false, timeStr: '종일', htmlLink: 'https://www.google.com/calendar/event?eid=N3YxNjUxMTkyajhtZ2c0cmowc25jNjJwcjIgbXN3cDk2QG0&ctz=Asia/Seoul' }
-  ]
-};
+// ── 캘린더 기본 데이터 (자동 업데이트: 2026-07-16 (자동 갱신)) ──
+const CAL_SEED = {"2026-07-16": [{"summary": "GPT 8시", "calLabel": "개인", "isHoliday": false, "timeStr": "16:00–17:00", "htmlLink": "https://www.google.com/calendar/event?eid=Mmp1ZWdyYXRhNzV1dGEyZzFnaWJjNWQ1MW1fMjAyNjA3MTZUMDcwMDAwWiBtc3dwOTZAbQ&ctz=Asia/Seoul"}]};
 
 // ── 캘린더 ID 목록 ──
 const CAL_IDS = [
@@ -507,11 +500,8 @@ function mailCard(msg) {
   </a>`;
 }
 
-// ── 메일 시드 데이터 (자동 업데이트: 2026-05-17 06:00) ──
-const MAIL_SEED = [
-  { _tid: '19e2a7dfa0e0f3c9', sender: 'mswp960@hanmail.net', subject: '[오늘의 주요뉴스] 2026년 5월 15일 - 청소년 / AI / 과학', snippet: '안녕하세요, 과학교사님. 오늘(2026년 5월 15일) 주요 뉴스를 청소년, AI, 과학 분야별로 한 가지씩 정리해 드립니다. ━━━━━━━━━━━━━━━━━━━━━━━━━ [1] 청소년 관련 - 서울 학교 밖 청소년 정책포럼 개최 ━━━━━━━━━━━━━━━━━━━━━━━━━ 5월 &#39;청소년의 달&#39;을 맞아 서울시가 &#39;2026 서울 학교', date: '2026-05-16T23:00:00Z' },
-  { _tid: '19e2d73500d5d488', sender: 'mswp960@hanmail.net', subject: '[2026년 5월 16일] 오늘의 주요 뉴스 정리 - 청소년/AI/과학', snippet: '안녕하세요, 과학교사님 2026년 5월 16일(토) 오늘의 주요 뉴스를 분야별로 정리해 보내드립니다. ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ■ 오늘의 주요 뉴스 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ [6·3 지방선거] 광역단체장 후보 &#39;재산 1위&#39;는 국민의힘 오세훈(73억 원), 재보선에서는 민주당 김용남(127억', date: '2026-05-16T22:00:00Z' }
-];
+// ── 메일 시드 데이터 (자동 업데이트: 2026-07-16 (자동 갱신)) ──
+const MAIL_SEED = [{"_tid": "19f68026eaaf1580", "sender": "kahoot@team.kahoot.com", "subject": "Save time on planning with Kahoot!+", "snippet": "Plan ahead effortlessly with Kahoot!+", "date": "2026-07-15T23:00:16Z"}, {"_tid": "19f6565a4ea1f908", "sender": "calendar-notification@google.com", "subject": "알림: 소마  - 2026년 7월 15일 (수) 오후 8시 - 오후 9시 (GMT+9) (mswp96@gmail.com)", "snippet": "소마 강서중과학교사님이 2026년 7월 15일 (수요일) ⋅ 오후 8시 – 오후 9시 (동티모르 시간)에 열리는 소마 일정에 나를 초대했습니다.", "date": "2026-07-15T10:49:47Z"}];
 
 function renderMailSeed() {
   const msgs = [...MAIL_SEED].sort((a,b)=>new Date(b.date)-new Date(a.date));
