@@ -158,6 +158,17 @@
   .em-subject { font-size: 0.8rem; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .em-snip { font-size: 0.72rem; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
   .tag { display: inline-block; border-radius: 4px; padding: 1px 5px; font-size: 0.66rem; font-weight: 700; margin-right: 3px; }
+
+  /* 메일 체크박스 선택 */
+  .em-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .em-wrap .em-card { margin-bottom: 0; flex: 1; min-width: 0; }
+  .em-check { flex-shrink: 0; width: 17px; height: 17px; border-radius: 4px; border: 2px solid #c7d2fe; cursor: pointer; background: white; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .em-check:hover { border-color: #2563eb; background: #eff6ff; }
+  .em-check.selected { background: #2563eb; border-color: #2563eb; }
+  .em-check.selected::after { content: '✓'; color: white; font-size: 0.68rem; font-weight: 800; }
+  .mail-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; padding: 8px 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .mail-toolbar input[type=checkbox] { width: 15px; height: 15px; accent-color: #2563eb; cursor: pointer; flex-shrink: 0; }
+  .mail-select-bar { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; color: #1d4ed8; display: none; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; }
   .tag-r { background: #fee2e2; color: #b91c1c; }
   .tag-y { background: #fef3c7; color: #92400e; }
 
@@ -262,6 +273,16 @@
 
 <!-- 메일 탭 -->
 <div id="tab-mail" class="tab-panel">
+  <div class="mail-toolbar" id="mail-toolbar" style="display:none">
+    <input type="checkbox" id="mail-check-all" onchange="toggleAllMail(this.checked)" title="전체 선택">
+    <span style="font-size:0.78rem;color:#6b7280;font-weight:600">전체 선택</span>
+    <div style="flex:1"></div>
+    <button class="btn-todo-refresh" id="mail-read-btn" onclick="markMailsRead()" disabled style="padding:5px 13px;font-size:0.78rem">읽음으로 표시</button>
+  </div>
+  <div class="mail-select-bar" id="mail-select-bar">
+    <span id="mail-select-text">0개 선택</span>
+    <button style="margin-left:auto;background:none;border:1px solid #bfdbfe;border-radius:6px;padding:2px 8px;font-size:0.72rem;color:#1d4ed8;cursor:pointer;font-family:inherit" onclick="deselectAllMail()">취소</button>
+  </div>
   <div class="section">
     <div class="sec-head"><span>⚠️</span><span class="sec-title">조치 필요 메일</span><span class="sec-count c-warn" id="cnt-a">–</span></div>
     <div id="act-list"><div class="empty">불러오는 중…</div></div>
@@ -492,11 +513,93 @@ function relDate(iso) {
 function mailCard(msg) {
   const urg=urgency(msg);
   const tag = urg==='urgent'?'<span class="tag tag-r">조치필요</span>':urg==='important'?'<span class="tag tag-y">확인</span>':'';
-  return `<a class="em-card ${urg}" href="https://mail.google.com/mail/u/0/#all/${msg._tid}" target="_blank" rel="noopener">
-    <div class="em-row1"><div class="em-dot"></div><div class="em-sender">${tag}${esc(senderName(msg.sender))}</div><div class="em-date">${relDate(msg.date)} ↗</div></div>
-    <div class="em-subject">${esc(msg.subject||'(제목 없음)')}</div>
-    <div class="em-snip">${esc(cleanSnip(msg.snippet))}</div>
-  </a>`;
+  const mid = (msg.id||'').replace(/[^a-zA-Z0-9_-]/g,'');
+  return `<div class="em-wrap" data-mid="${mid}">
+    <div class="em-check" id="emchk-${mid}" onclick="toggleMailSelect('${mid}',this)"></div>
+    <a class="em-card ${urg}" href="https://mail.google.com/mail/u/0/#all/${msg._tid}" target="_blank" rel="noopener">
+      <div class="em-row1"><div class="em-dot"></div><div class="em-sender">${tag}${esc(senderName(msg.sender))}</div><div class="em-date">${relDate(msg.date)} ↗</div></div>
+      <div class="em-subject">${esc(msg.subject||'(제목 없음)')}</div>
+      <div class="em-snip">${esc(cleanSnip(msg.snippet))}</div>
+    </a>
+  </div>`;
+}
+
+// ── 메일 체크박스 선택 ──
+let selectedMails = new Set();
+
+function toggleMailSelect(mid, el) {
+  if (selectedMails.has(mid)) { selectedMails.delete(mid); el.classList.remove('selected'); }
+  else { selectedMails.add(mid); el.classList.add('selected'); }
+  updateMailSelectUI();
+}
+
+function toggleAllMail(checked) {
+  document.querySelectorAll('.em-wrap[data-mid]').forEach(wrap => {
+    const mid = wrap.dataset.mid;
+    const chk = document.getElementById('emchk-' + mid);
+    if (checked) { selectedMails.add(mid); if(chk) chk.classList.add('selected'); }
+    else { selectedMails.delete(mid); if(chk) chk.classList.remove('selected'); }
+  });
+  updateMailSelectUI();
+}
+
+function deselectAllMail() {
+  selectedMails.clear();
+  document.querySelectorAll('.em-check.selected').forEach(el => el.classList.remove('selected'));
+  document.getElementById('mail-check-all').checked = false;
+  updateMailSelectUI();
+}
+
+function updateMailSelectUI() {
+  const cnt = selectedMails.size;
+  const btn = document.getElementById('mail-read-btn');
+  const bar = document.getElementById('mail-select-bar');
+  const text = document.getElementById('mail-select-text');
+  btn.disabled = cnt === 0;
+  if (cnt > 0) {
+    bar.style.display = 'flex';
+    text.textContent = `${cnt}개 선택됨`;
+    btn.textContent = `${cnt}개 읽음으로 표시`;
+  } else {
+    bar.style.display = 'none';
+    btn.textContent = '읽음으로 표시';
+  }
+  // 전체 선택 체크박스 상태 동기화
+  const all = document.querySelectorAll('.em-wrap[data-mid]').length;
+  const ca = document.getElementById('mail-check-all');
+  if (ca) ca.checked = (cnt > 0 && cnt === all);
+}
+
+async function markMailsRead() {
+  if (!selectedMails.size) return;
+  const ids = [...selectedMails];
+  const btn = document.getElementById('mail-read-btn');
+  btn.disabled = true;
+  btn.textContent = '처리 중…';
+  let ok = 0, fail = 0;
+  for (const mid of ids) {
+    try {
+      await window.cowork.callMcpTool('mcp__48a155da-9221-4e81-a59a-ab750e7a9f72__unlabel_message', {
+        messageId: mid, labelIds: ['UNREAD']
+      });
+      ok++;
+      const wrap = document.querySelector(`.em-wrap[data-mid="${mid}"]`);
+      if (wrap) { wrap.style.transition='opacity 0.25s'; wrap.style.opacity='0'; setTimeout(()=>wrap.remove(), 250); }
+    } catch(e) { fail++; console.warn('unlabel fail', mid, e); }
+  }
+  setTimeout(()=>{
+    selectedMails.clear();
+    updateMailSelectUI();
+    // 카운트 업데이트
+    setTimeout(()=>{
+      const remaining = document.querySelectorAll('.em-wrap[data-mid]').length;
+      document.getElementById('cnt-m').textContent = remaining;
+      document.getElementById('s-mail').textContent = remaining;
+      if (ok > 0) showToast(`✅ ${ok}개를 읽음으로 표시했습니다`);
+      if (fail > 0) showToast(`⚠️ ${fail}개 처리 실패`);
+    }, 300);
+    btn.textContent = '읽음으로 표시';
+  }, 100);
 }
 
 // ── 메일 시드 데이터 (자동 업데이트: 2026-07-21 06:00) ──
@@ -531,6 +634,8 @@ async function loadMail() {
     document.getElementById('s-mail').textContent=msgs.length;
     document.getElementById('act-list').innerHTML=act.length?act.map(mailCard).join(''):'<div class="empty">조치 필요 메일 없음 ✅</div>';
     document.getElementById('mail-list').innerHTML=norm.length?norm.map(mailCard).join(''):'<div class="empty">기타 안읽은 메일 없음</div>';
+    selectedMails.clear(); updateMailSelectUI();
+    if (msgs.length > 0) document.getElementById('mail-toolbar').style.display='flex';
   } catch(err) {
     console.warn('loadMail error', err);
     renderMailSeed();
