@@ -1,0 +1,34 @@
+# 리다이렉트 가드 — index.html은 morning-brief/diary/ 로 보내는 리다이렉트 스텁이어야 한다.
+# 다른 내용으로 덮어써지면 redirect.canonical.html(정본)로 자동 복구한다.
+# 단, 옛 파란색 「오늘의 현황」 대시보드가 올라온 경우는 PC의 부활한 레거시 작업
+# (오늘현황_GitHub동기화)이 30분마다 덮어쓰는 상황이므로 푸시 전쟁을 피하려
+# 복구하지 않고 실패로만 표시한다 — 코워크\remove-sync-task.bat 실행 필요.
+# 스텁을 의도적으로 바꾸려면 정본 파일도 같은 커밋에서 함께 바꿀 것.
+name: Guard redirect stub
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and self-heal
+        run: |
+          set -e
+          if diff -q index.html redirect.canonical.html >/dev/null 2>&1; then
+            echo "Redirect stub intact."
+            exit 0
+          fi
+          if grep -q '오늘의 현황' index.html; then
+            echo "::error::Legacy blue dashboard detected — the Windows scheduled task is alive again. Run 코워크\\remove-sync-task.bat on the PC. Not auto-restoring to avoid a push war."
+            exit 1
+          fi
+          echo "::warning::index.html was overwritten — restoring redirect stub"
+          cp redirect.canonical.html index.html
+          git config user.name "Redirect Guard"
+          git config user.email "guard@users.noreply.github.com"
+          git commit -am "[guard] restore redirect stub (auto-heal)"
+          git push
